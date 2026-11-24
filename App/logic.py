@@ -136,15 +136,20 @@ def total_stops(analyzer):
     """
     Total de paradas de autobus en el grafo
     """
-    # TODO: Retorne el número de vértices del grafo
+    stops_map = analyzer.get("stops")
+    if stops_map is None:
+        return 0
+    return m.size(stops_map)
 
 
 def total_connections(analyzer):
     """
     Total de enlaces entre las paradas
     """
-    # TODO: Retorne el número de arcos del grafo de conexiones
-
+    connections_graph = analyzer.get("connections")
+    if connections_graph is None:
+        return 0
+    return G.size(connections_graph)
 
 # Funciones para la medición de tiempos
 

@@ -28,7 +28,8 @@
 #  Importaciones
 # ___________________________________________________
 
-from DataStructures.List import single_linked_list as lt
+# from DataStructures.List import single_linked_list as lt
+from DataStructures.List import array_list as lt
 from DataStructures.Map import map_linear_probing as m
 from DataStructures.Graph import digraph as G
 
@@ -64,9 +65,9 @@ def init():
 def new_analyzer():
     """ Inicializa el analizador
 
-   stops: Tabla de hash para guardar la información de las paradas
-   connections: Grafo para representar las rutas entre estaciones
-   paths: Estructura que almancena los caminos de costo minimo desde un
+    stops: Tabla de hash para guardar la información de las paradas
+    connections: Grafo para representar las rutas entre estaciones
+    paths: Estructura que almancena los caminos de costo minimo desde un
            vertice determinado a todos los otros vértices del grafo
     """
     try:
@@ -79,7 +80,7 @@ def new_analyzer():
         analyzer['stops'] = m.new_map(
             num_elements=8000, load_factor=0.7, prime=109345121)
 
-        analyzer['connections'] = G.new_graph(order=20000)
+        analyzer['connections'] = G.new_graph(order=60000)
         return analyzer
     except Exception as exp:
         return exp
@@ -121,9 +122,8 @@ def load_services(analyzer, servicesfile, stopsfile):
             samebusStop = lastservice['BusStopCode'] == service['BusStopCode']
             if sameservice and samedirection and not samebusStop:
                 add_stop_connection(analyzer, lastservice, service)
-
-        add_same_stop_connections(analyzer, service)
         lastservice = service
+    process_transfers(analyzer)
 
     return analyzer
 
@@ -212,7 +212,7 @@ def add_route_stop(analyzer, service):
     """
     stop_info = m.get(analyzer['stops'], service['BusStopCode'])
     stop_services = stop_info['services']
-    if lt.is_present(stop_services, service['ServiceNo'], lt.default_function) == -1:
+    if lt.is_present(stop_services, service['ServiceNo'], default_function) == -1:
         lt.add_last(stop_services, service['ServiceNo'])
 
     return analyzer
@@ -222,24 +222,37 @@ def add_connection(analyzer, origin, destination, distance):
     """
     Adiciona un arco entre dos estaciones
     """
-
     G.add_edge(analyzer['connections'], origin, destination, distance)
 
 
 
-def add_same_stop_connections(analyzer, service):
-    stop_1 = format_vertex(service)
-    stop_buses_lt = m.get(analyzer['stops'], service['BusStopCode'])['services']
+def process_transfers(analyzer):
+    """
+    Recorre todas las paradas y crea arcos de costo 0 entre
+    todas las rutas que paran en la misma estación (Transbordos).
+    """
+    all_stops_list = m.value_set(analyzer['stops'])
 
-    if lt.size(stop_buses_lt) > 1:
-        pass
+    for i in range(lt.size(all_stops_list)):
+        stop_info = lt.get_element(all_stops_list, i)
+        bus_stop_code = stop_info['BusStopCode']
 
-    node = stop_buses_lt['first']
-    for _ in range(lt.size(stop_buses_lt)):
-        stop_2 = format_vertex({'BusStopCode': service['BusStopCode'], 'ServiceNo': node['info']})
-        if stop_1 != stop_2:
-            add_connection(analyzer, stop_1, stop_2, 0)
-        node = node['next']
+        services_list = stop_info['services']
+
+        if lt.size(services_list) < 2:
+            continue
+        
+        route_ids = lt.new_list()
+        for i in range(lt.size(services_list)):
+            lt.add_last(route_ids, lt.get_element(services_list, i))
+
+        for route_a in range(lt.size(route_ids)):
+            vertex_a = f"{bus_stop_code}-{lt.get_element(route_ids, route_a)}"
+            for route_b in range(lt.size(route_ids)):
+                if route_a == route_b:
+                    continue
+                vertex_b = f"{bus_stop_code}-{lt.get_element(route_ids, route_b)}"
+                add_connection(analyzer, vertex_a, vertex_b, 0.0)
     return analyzer
 
 
@@ -307,3 +320,14 @@ def format_vertex(service):
     name = service['BusStopCode'] + '-'
     name = name + service['ServiceNo']
     return name
+
+def default_function(e1, e2):
+    """
+    Función de comparación por defecto a modo de ejemplo (esta función debería estar presente en su archivo de listas)
+    Compara dos elementos y retorna 0 si son iguales, 1 si e1 > e2 y -1 si e1 < e2.
+    """
+    if e1 > e2:
+        return 1
+    elif e1 < e2:
+        return -1
+    return 0
